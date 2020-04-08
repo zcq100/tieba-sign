@@ -3,7 +3,7 @@ import re
 import requests
 import logging
 import time
-from urllib.parse import quote
+from urllib.parse import quote, unquote_to_bytes
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/74.0",
@@ -13,12 +13,11 @@ headers = {
 REG_1 = r'<tr>.*?f\?kw=([\d\w\%]*)" title="(.*?)".*?balvid="(\d*)".*?<\/tr>'
 REG_TOTAL = r'&pn=(\d+)">尾页'
 URL_FAV = "http://tieba.baidu.com/f/like/mylike?pn="
-URL_SIGN = "https://tieba.baidu.com/sign/add"
+URL_SIGN = "http://tieba.baidu.com/sign/add"
 
 
 class Tieba:
-    def __init__(self, cookie=None, filename=None):
-        self.filename = filename
+    def __init__(self, cookie=None):
         self.bars = []
         if cookie is not None:
             headers["Cookie"] = cookie
@@ -28,11 +27,11 @@ class Tieba:
         获取关注的贴吧列表
         """
         num = 1
-        i = 1
-        while i <= num:
-            url = URL_FAV+str(num)
-            resp = requests.get(url, headers=headers)
+        i = 0
+        while i < num:
             i += 1
+            url = URL_FAV+str(i)
+            resp = requests.get(url, headers=headers)
             if resp.status_code == 200:
                 # 获取最大页数
                 if num == 1:
@@ -78,9 +77,8 @@ class Tieba:
                 raise ValueError("贴吧名称不能为空")
             encode_name = quote(name)
         headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
-        data = {
-            "ie": "utf-8", "kw": encode_name, "tbs": tbs}
-        logging.debug(f"----------\n{data}")
+        data = {"?ie": "utf-8", "kw": encode_name, "tbs": tbs}
+        logging.debug(f"------------------\n{data}")
         resp = requests.post(URL_SIGN, headers=headers, data=data)
         logging.debug(resp.text)
         if resp.status_code == 200:
@@ -88,9 +86,9 @@ class Tieba:
             code = j.get("no")
             error = j.get("error")
             if code == 0:
-                logging.info(f"{name},{encode_name},{tbs}:签到成功..")
+                logging.info(f"{name},{tbs}:签到成功..")
             else:
-                logging.info(f"{name},{encode_name},{tbs}:{error}")
+                logging.info(f"{name},{tbs}:{error}")
 
     def batch_sign(self, _time=0):
         """
@@ -98,36 +96,37 @@ class Tieba:
         - _time 签到间隔时间，默认为0
         """
         for i in self.bars:
-            self.sign(name=i[1], encode_name=i[0], tbs=i[2])
+            self.sign(name=i[1], encode_name=unquote_to_bytes(i[0]), tbs=i[2])
             time.sleep(_time)
 
 
 def main():
-    
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--cookie", help="Cookies")
     parser.add_argument("-f", "--file", help="cookies file")
     parser.add_argument("-t", "--time", help="sleep time")
     parser.add_argument("-d", "--dump", action="store_true",
                         help="dump list to file")
-    parser.add_argument("-v",dest="verbose",action="store_true",help="verbose mode")
+    parser.add_argument("-v", dest="verbose",
+                        action="store_true", help="verbose mode")
     args = parser.parse_args()
     if args.cookie is None and args.file is None:
         parser.print_usage()
-        return 
-    
+        return
+
     if args.cookie:
         cookie = args.cookie
 
     if args.file:
-        with open(args.files, "r", encoding="utf-8") as f:
+        with open(args.file, "r", encoding="utf-8") as f:
             cookie = f.read()
-            
+
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-        
+
     tieba = Tieba(cookie)
     tieba.get_bars()
     if args.dump:

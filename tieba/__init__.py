@@ -1,4 +1,1 @@
 from .sign import Tieba
-
-
-
