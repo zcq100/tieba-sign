@@ -1,9 +1,9 @@
-import argparse
-import re
-import requests
 import logging
 import time
+import argparse
+import re
 from urllib.parse import quote, unquote_to_bytes
+import requests
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/74.0",
@@ -38,19 +38,19 @@ class Tieba:
                     matchs2 = re.search(REG_TOTAL, resp.text, re.MULTILINE)
                     if matchs2 is not None:
                         num = int(matchs2.group(1))
-                        logging.debug(f"total:{num}")
+                        logging.debug("total:%s",num)
 
                 # 匹配关注的贴吧
                 matchs = re.finditer(REG_1, resp.text, re.MULTILINE)
-                for m in matchs:
-                    b = [m.group(1).strip(), m.group(
-                        2).strip(), m.group(3).strip()]
-                    self.bars.append(b)
-                    logging.debug(f"{b}")
+                for _m in matchs:
+                    _b = [_m.group(1).strip(), _m.group(
+                        2).strip(), _m.group(3).strip()]
+                    self.bars.append(_b)
+                    logging.debug("%s",_b)
 
             else:
                 logging.debug("请求失败")
-        logging.info(f"获取到关注贴吧:{len(self.bars)}个")
+        logging.info("获取到关注贴吧:%s个",len(self.bars))
 
     def dumps(self, file_name="list.txt"):
         """
@@ -58,11 +58,11 @@ class Tieba:
         - file_name 文件名
         """
         _list = ""
-        with open(file_name, "w", encoding="utf-8") as f:
+        with open(file_name, "w", encoding="utf-8") as _fp:
             for i in self.bars:
-                f.writelines(f"{i[1]},{i[2]},{i[0]}\n")
+                _fp.writelines(f"{i[1]},{i[2]},{i[0]}\n")
                 _list += f"{i[1]},"
-            logging.info(f"贴吧列表保存到{file_name}..")
+            logging.info("贴吧列表保存到%s..",file_name)
         return _list
 
     def sign(self, name=None, tbs=None, encode_name=None):
@@ -78,7 +78,7 @@ class Tieba:
             encode_name = quote(name)
         headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
         data = {"?ie": "utf-8", "kw": encode_name, "tbs": tbs}
-        logging.debug(f"------------------\n{data}")
+        logging.debug("------------------\n%s",data)
         resp = requests.post(URL_SIGN, headers=headers, data=data)
         logging.debug(resp.text)
         if resp.status_code == 200:
@@ -86,9 +86,9 @@ class Tieba:
             code = j.get("no")
             error = j.get("error")
             if code == 0:
-                logging.info(f"{name},{tbs}:签到成功..")
+                logging.info("%s,%s:签到成功..",name,tbs)
             else:
-                logging.info(f"{name},{tbs}:{error}")
+                logging.info("%s,%s:%s",name,tbs,error)
 
     def batch_sign(self, _time=0):
         """
@@ -119,8 +119,8 @@ def main():
         cookie = args.cookie
 
     if args.file:
-        with open(args.file, "r", encoding="utf-8") as f:
-            cookie = f.read()
+        with open(args.file, "r", encoding="utf-8") as _fp:
+            cookie = _fp.read()
 
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
