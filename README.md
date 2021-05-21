@@ -10,13 +10,23 @@ pip install --user tieba-sign
 
 ``` shell
 #查看帮助
-C:\Users\>tieba-sign -h
+usage: tieba-sign [-h] [-v] bduss
+
+Baidu Tieba Sign
+
+positional arguments:
+  bduss       tieba bduss cookie
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -v          verbose
 ```
 
 首先登录百度，然后打开浏览器调试工具(按F12)，在网络，请求头找到cookie,然后拷贝BDUSS段的值过来。
 
 ``` shell
-tieba-sign -c "RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE;"
+tieba-sign -v "RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE;"
+
 ```
 
 ## 代码中使用
