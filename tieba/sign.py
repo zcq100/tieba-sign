@@ -1,141 +1,129 @@
 import logging
 import time
-import argparse
-import re
-from urllib.parse import quote, unquote_to_bytes
 import requests
 
-headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/74.0",
-}
-
-# REG_1=r'f\?kw=([\d\w\%]*)"|tbs="([\d\w]*)"'
-REG_1 = r'<tr>.*?f\?kw=([\d\w\%]*)" title="(.*?)".*?balvid="(\d*)".*?<\/tr>'
-REG_TOTAL = r'&pn=(\d+)">尾页'
-URL_FAV = "http://tieba.baidu.com/f/like/mylike?pn="
-URL_SIGN = "http://tieba.baidu.com/sign/add"
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s 贴吧签到: %(message)s')
 
 
-class Tieba:
-    def __init__(self, cookie=None):
-        self.bars = []
-        if cookie is not None:
-            headers["Cookie"] = cookie
+class Forum(object):
 
-    def get_bars(self):
+    def __init__(self, id, name, level, exp, isSign):
+        self.id = id
+        self.name = name
+        self.level = level
+        self.exp = exp
+        self.isSign = isSign
+
+
+class Tieba():
+    TIEBA_LIKE = "/mo/q/newmoindex"
+    SIGN_PATH = "/sign/add"
+    HOST = "tieba.baidu.com"
+
+    def __init__(self, bduss=None):
         """
-        获取关注的贴吧列表
+        BDUSS 是你的cookie里面的登录凭证，用浏览器登录，然后找到登录的cookie，复制BDUSS的值
         """
-        num = 1
-        i = 0
-        while i < num:
-            i += 1
-            url = URL_FAV+str(i)
-            resp = requests.get(url, headers=headers)
-            if resp.status_code == 200:
-                # 获取最大页数
-                if num == 1:
-                    matchs2 = re.search(REG_TOTAL, resp.text, re.MULTILINE)
-                    if matchs2 is not None:
-                        num = int(matchs2.group(1))
-                        logging.debug("total:%s",num)
+        self.token = bduss
+        self._forums = []
+        self.session = Tieba.Net("https://%s" % Tieba.HOST)
+        self.session.headers["cookie"] = f"BDUSS={bduss}"
 
-                # 匹配关注的贴吧
-                matchs = re.finditer(REG_1, resp.text, re.MULTILINE)
-                for _m in matchs:
-                    _b = [_m.group(1).strip(), _m.group(
-                        2).strip(), _m.group(3).strip()]
-                    self.bars.append(_b)
-                    logging.debug("%s",_b)
+    def get_tiebas(self):
+        """
+        获取所有关注的贴吧名称
+        """
+        if len(self._forums) > 0:
+            return
+        resp = self.session.get(Tieba.TIEBA_LIKE)
+        _data = resp.json()
+        if _data["error"] == "success":
+            for tb in _data["data"]["like_forum"]:
+                forum = Forum(id=tb["forum_id"], name=tb["forum_name"],
+                              exp=tb["user_exp"], level=tb["user_level"], isSign=tb["is_sign"])
+                self._forums.append(forum)
+            logging.debug(f"获取到了{len(self._forums)}个贴吧信息")
 
-            else:
-                logging.debug("请求失败")
-        logging.info("获取到关注贴吧:%s个",len(self.bars))
+    def status(self):
+        """
+        获取签到状态
+        """
+        self.get_tiebas()
+        logging.info("#签到状态")
+        for tb in self._forums:
+            logging.info(f"{tb.name}")
 
-    def dumps(self, file_name="list.txt"):
+    def sign(self, name=None, delay=0):
         """
-        把贴吧列表保存到文件
-        - file_name 文件名
+        签到一个贴吧
         """
-        _list = ""
-        with open(file_name, "w", encoding="utf-8") as _fp:
-            for i in self.bars:
-                _fp.writelines(f"{i[1]},{i[2]},{i[0]}\n")
-                _list += f"{i[1]},"
-            logging.info("贴吧列表保存到%s..",file_name)
-        return _list
+        if name is None:
+            logging.info("贴吧巴名不能为空")
+            return
 
-    def sign(self, name=None, tbs=None, encode_name=None):
-        """
-        贴吧签到
-        - name 吧名
-        - tbs 贴吧编号
-        - encode_name urlencode后的名称
-        """
-        if encode_name is None:
-            if name is None:
-                raise ValueError("贴吧名称不能为空")
-            encode_name = quote(name)
-        headers["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
-        data = {"?ie": "utf-8", "kw": encode_name, "tbs": tbs}
-        logging.debug("------------------\n%s",data)
-        resp = requests.post(URL_SIGN, headers=headers, data=data)
-        logging.debug(resp.text)
+        forum = self._get_forum(name)
+        if forum is not None and forum.isSign == 1:
+            logging.info(f"{name}已经签过了")
+            return
+
+        time.sleep(delay)
+
+        payload = f"ie=utf-8&kw={name}"
+        resp = self.session.post(Tieba.SIGN_PATH, payload)
+        # logging.debug(resp.json())
         if resp.status_code == 200:
             j = resp.json()
-            code = j.get("no")
-            error = j.get("error")
-            if code == 0:
-                logging.info("%s,%s:签到成功..",name,tbs)
+            if j["no"] == 0:
+                for tb in self._forums:
+                    if tb.name == name:
+                        tb.isSign = 1
+                logging.info(f"{name}签到成功")
+            elif j["no"] == 2150040:
+                logging.info(f"!!!{name}:需要输入验证码")
+                # TODO(zcq100): 这里需要处理验证码问题
             else:
-                logging.info("%s,%s:%s",name,tbs,error)
+                logging.info(f"{name}签到失败:{j['error']}")
 
-    def batch_sign(self, _time=0):
+    def auto_sign(self, delay=3):
         """
         批量签到
-        - _time 签到间隔时间，默认为0
+        delay 签到间隙时间
         """
-        for i in self.bars:
-            self.sign(name=i[1], encode_name=unquote_to_bytes(i[0]), tbs=i[2])
-            time.sleep(_time)
+        self.get_tiebas()
+        for forum in self._forums:
+            self.sign(forum.name, delay=delay)
+
+    def _get_forum(self, name):
+        for f in self._forums:
+            if f.name == name:
+                return f
+
+    class Net:
+        headers = {
+            'user-agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0",
+            'host': "tieba.baidu.com",
+            'content-type': "application/x-www-form-urlencoded; charset=UTF-8",
+            'x-requested-with': "XMLHttpRequest"
+        }
+
+        def __init__(self, host):
+            self.host = host
+
+        def get(self, path):
+            url = self.host+path
+            return requests.get(url, headers=self.headers)
+
+        def post(self, path, payload):
+            url = self.host+path
+            return requests.post(url, headers=self.headers, data=payload.encode("utf-8"))
 
 
-def main():
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--cookie", help="Cookies")
-    parser.add_argument("-f", "--file", help="cookies file")
-    parser.add_argument("-t", "--time", help="sleep time")
-    parser.add_argument("-d", "--dump", action="store_true",
-                        help="dump list to file")
-    parser.add_argument("-v", dest="verbose",
-                        action="store_true", help="verbose mode")
-    args = parser.parse_args()
-    if args.cookie is None and args.file is None:
-        parser.print_usage()
-        return
-
-    if args.cookie:
-        cookie = args.cookie
-
-    if args.file:
-        with open(args.file, "r", encoding="utf-8") as _fp:
-            cookie = _fp.read()
-
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    tieba = Tieba(cookie)
-    tieba.get_bars()
-    if args.dump:
-        tieba.dumps()
-    _time = 1
-    if args.time:
-        _time = args.time
-    tieba.batch_sign(_time)
+def main(bduss):
+    app = Tieba(bduss)
+    # app.sign("看门狗")
+    app.auto_sign()
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    main("RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BEUkl5dGpURGFDSVJoRTJOeTRTczFnRVFBQUFBJCQAAAAAAAAAAAEAAACtK9sBemNxMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALi9pWC4vaVgdz")
