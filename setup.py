@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="tieba-sign",  # Replace with your own username
-    version="0.0.5",
+    version="0.0.6",
     author="zcq100",
     author_email="zcq100@gmail.com",
     description="贴吧自动签到",

@@ -1,9 +1,11 @@
 import logging
 import time
+import sys
+import argparse
 import requests
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s 贴吧签到: %(message)s')
+# logging.basicConfig(level=logging.INFO,
+#                     format='%(asctime)s 贴吧签到: %(message)s')
 
 
 class Forum(object):
@@ -94,17 +96,15 @@ class Tieba():
         delay 签到间隙时间
         """
         self.get_tiebas()
-        sleepTime = delay
         for forum in self._forums:
             try:
-                self.sign(forum.name, delay=sleepTime)
-                sleepTime = delay
+                self.sign(forum.name, delay)
             except CaptchaException as e:
                 logging.info(e)
                 # TODO(zcq100): 需要处理验证码的问题
                 # 暂时休眠3分钟
-                sleepTime += 10
-                logging.info(f"{sleepTime}秒后再试..")
+                logging.info("验证码暂时没有处理，建议停三分钟以上再试")
+                return
 
             except Exception as e:
                 logging.info(e)
@@ -142,12 +142,28 @@ class SignFailException(Exception):
     ...
 
 
-def main(bduss):
-    app = Tieba(bduss)
-    # app.sign("看门狗")
-    app.status()
-    app.auto_sign()
+def main():
+    parser = argparse.ArgumentParser(description="Baidu Tieba Sign")
+    parser.add_argument("bduss", type=str, help="tieba bduss cookie")
+    parser.add_argument("-v", action="store_true",
+                        dest="dbg", help="verbose")
+    args = parser.parse_args()
+    if args.dbg:
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug("verbose mode")
+
+    if args.bduss is None:
+        parser.print_help()
+    else:
+        try:
+            logging.info("BDUSS=%s"%args.bduss)
+            app = Tieba(args.bduss)
+            app.auto_sign()
+        except KeyboardInterrupt:
+            logging.info("Exit..")
+            sys.exit()
 
 
 if __name__ == '__main__':
-    main("RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BEUkl5dGpURGFDSVJoRTJOeTRTczFnRVFBQUFBJCQAAAAAAAAAAAEAAACtK9sBemNxMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALi9pWC4vaVgdz")
+    # main("RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BEUkl5dGpURGFDSVJoRTJOeTRTczFnRVFBQUFBJCQAAAAAAAAAAAEAAACtK9sBemNxMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALi9pWC4vaVgdz")
+    main()
