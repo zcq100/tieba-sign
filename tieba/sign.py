@@ -2,7 +2,7 @@ import logging
 import time
 import requests
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s 贴吧签到: %(message)s')
 
 
@@ -43,23 +43,27 @@ class Tieba():
                 forum = Forum(id=tb["forum_id"], name=tb["forum_name"],
                               exp=tb["user_exp"], level=tb["user_level"], isSign=tb["is_sign"])
                 self._forums.append(forum)
-            logging.debug(f"获取到了{len(self._forums)}个贴吧信息")
+            logging.info(f"获取到了{len(self._forums)}个贴吧信息")
 
     def status(self):
         """
         获取签到状态
         """
         self.get_tiebas()
-        logging.info("#签到状态")
+        logging.info("#签到状态:")
+        count = 0
         for tb in self._forums:
             logging.info(f"{tb.name}")
+            if tb.isSign == 1:
+                count += 1
+        logging.info(f"#其中{count}个已经签过了:")
 
-    def sign(self, name=None, delay=0):
+    def sign(self, name, delay=0):
         """
         签到一个贴吧
         """
         if name is None:
-            logging.info("贴吧巴名不能为空")
+            logging.info("贴吧名不能为空")
             return
 
         forum = self._get_forum(name)
@@ -80,10 +84,9 @@ class Tieba():
                         tb.isSign = 1
                 logging.info(f"{name}签到成功")
             elif j["no"] == 2150040:
-                logging.info(f"!!!{name}:需要输入验证码")
-                # TODO(zcq100): 这里需要处理验证码问题
+                raise CaptchaException(f"!!!贴吧:{name}", j)
             else:
-                logging.info(f"{name}签到失败:{j['error']}")
+                raise SignFailException(f"{name}签到失败", j['error'])
 
     def auto_sign(self, delay=3):
         """
@@ -91,8 +94,20 @@ class Tieba():
         delay 签到间隙时间
         """
         self.get_tiebas()
+        sleepTime = delay
         for forum in self._forums:
-            self.sign(forum.name, delay=delay)
+            try:
+                self.sign(forum.name, delay=sleepTime)
+                sleepTime = delay
+            except CaptchaException as e:
+                logging.info(e)
+                # TODO(zcq100): 需要处理验证码的问题
+                # 暂时休眠3分钟
+                sleepTime += 10
+                logging.info(f"{sleepTime}秒后再试..")
+
+            except Exception as e:
+                logging.info(e)
 
     def _get_forum(self, name):
         for f in self._forums:
@@ -119,9 +134,18 @@ class Tieba():
             return requests.post(url, headers=self.headers, data=payload.encode("utf-8"))
 
 
+class CaptchaException(Exception):
+    ...
+
+
+class SignFailException(Exception):
+    ...
+
+
 def main(bduss):
     app = Tieba(bduss)
     # app.sign("看门狗")
+    app.status()
     app.auto_sign()
 
 
