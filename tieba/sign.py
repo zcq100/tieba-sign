@@ -23,14 +23,15 @@ class Tieba():
     SIGN_PATH = "/sign/add"
     HOST = "tieba.baidu.com"
 
-    def __init__(self, bduss=None):
+    def __init__(self, bduss=None, ua=None, log=None):
         """
         BDUSS 是你的cookie里面的登录凭证，用浏览器登录，然后找到登录的cookie，复制BDUSS的值
         """
         self.token = bduss
         self._forums = []
-        self.session = Tieba.Net("https://%s" % Tieba.HOST)
-        self.session.headers["cookie"] = f"BDUSS={bduss}"
+        self.session = Tieba.Net("https://%s" % Tieba.HOST, ua)
+        self.session.headers["Cookie"] = f"BDUSS={bduss}"
+        self.log = log or logging.getLogger()
 
     def get_tiebas(self):
         """
@@ -45,32 +46,35 @@ class Tieba():
                 forum = Forum(id=tb["forum_id"], name=tb["forum_name"],
                               exp=tb["user_exp"], level=tb["user_level"], isSign=tb["is_sign"])
                 self._forums.append(forum)
-            logging.info(f"获取到了{len(self._forums)}个贴吧信息")
+            c = len(self._forums)
+            self.log.info(f"获取到了{c}个贴吧信息")
+            return c
+        else:
+            self.log.error(f"获取贴吧列表失败，请检查百度令牌")
 
     def status(self):
         """
         获取签到状态
         """
         self.get_tiebas()
-        logging.info("#签到状态:")
+        self.log.info("#签到状态:")
         count = 0
         for tb in self._forums:
-            logging.info(f"{tb.name}")
+            self.log.info(f"{tb.name}")
             if tb.isSign == 1:
                 count += 1
-        logging.info(f"#其中{count}个已经签过了:")
+        self.log.info(f"#其中{count}个已经签过了:")
 
     def sign(self, name, delay=0):
         """
         签到一个贴吧
         """
         if name is None:
-            logging.info("贴吧名不能为空")
-            return
+            raise ValueError("贴吧名不能为空")
 
         forum = self._get_forum(name)
         if forum is not None and forum.isSign == 1:
-            logging.info(f"{name}已经签过了")
+            self.log.info(f"{name}已经签过了")
             return
 
         time.sleep(delay)
@@ -84,7 +88,7 @@ class Tieba():
                 for tb in self._forums:
                     if tb.name == name:
                         tb.isSign = 1
-                logging.info(f"{name}签到成功")
+                self.log.info(f"{name}签到成功")
             elif j["no"] == 2150040:
                 raise CaptchaException(f"!!!贴吧:{name}", j)
             else:
@@ -95,19 +99,21 @@ class Tieba():
         批量签到
         delay 签到间隙时间
         """
-        self.get_tiebas()
+        if not self.get_tiebas():
+            return
         for forum in self._forums:
             try:
                 self.sign(forum.name, delay)
             except CaptchaException as e:
-                logging.info(e)
+                self.log.info(e)
                 # TODO(zcq100): 需要处理验证码的问题
                 # 暂时休眠3分钟
-                logging.info("验证码暂时没有处理，建议停三分钟以上再试")
+                self.log.info("验证码暂时没有处理，建议停三分钟以上再试")
                 return
 
             except Exception as e:
-                logging.info(e)
+                self.log.error(e)
+        return True
 
     def _get_forum(self, name):
         for f in self._forums:
@@ -116,22 +122,26 @@ class Tieba():
 
     class Net:
         headers = {
-            'user-agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0",
-            'host': "tieba.baidu.com",
-            'content-type': "application/x-www-form-urlencoded; charset=UTF-8",
-            'x-requested-with': "XMLHttpRequest"
+            'User-Agent': r'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36',
+            'Host': "tieba.baidu.com",
+#            'content-type': "application/x-www-form-urlencoded; charset=UTF-8",
+#            'x-requested-with': "XMLHttpRequest"
         }
 
-        def __init__(self, host):
+        def __init__(self, host, ua=None):
+            if isinstance(ua, str) and len(ua):
+                self.headers['User-Agent'] = ua
             self.host = host
+            self.session = requests.Session()
+            self.session.headers = self.headers
 
         def get(self, path):
             url = self.host+path
-            return requests.get(url, headers=self.headers)
+            return self.session.get(url)
 
         def post(self, path, payload):
             url = self.host+path
-            return requests.post(url, headers=self.headers, data=payload.encode("utf-8"))
+            return self.session.post(url, data=payload.encode("utf-8"))
 
 
 class CaptchaException(Exception):
@@ -165,5 +175,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # main("RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BEUkl5dGpURGFDSVJoRTJOeTRTczFnRVFBQUFBJCQAAAAAAAAAAAEAAACtK9sBemNxMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALi9pWC4vaVgdz")
     main()
