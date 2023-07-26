@@ -48,7 +48,7 @@ class Tieba:
         data = self.http.make_request(
             method="POST", endpoint=endpoint, data=urlencode(payload)
         )
-        _LOG.info(data)
+        # _LOG.info(data)
         if data["no"] == 2280006:
             signed = data["data"]["signedForumAmount"]
             unsigned = data["data"]["unsignedForumAmount"]

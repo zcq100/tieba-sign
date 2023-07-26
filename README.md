@@ -26,8 +26,7 @@ options:
 首先登录百度，然后打开浏览器调试工具(按F12)，在网络，请求头找到cookie,然后拷贝BDUSS段的值过来。
 
 ``` shell
-python -m tieba "RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE;"
-
+python -m tieba "RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE"
 ```
 
 ## 代码中使用
