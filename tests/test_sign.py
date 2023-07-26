@@ -1,11 +1,14 @@
+import os
 import unittest
 from unittest.mock import MagicMock
 from tieba.sign import Tieba
+from dotenv import load_dotenv
 
 
 class TestTieba(unittest.TestCase):
     def setUp(self):
-        BDUSS = "1NQaGZiaUpxYVozNWFpRnBNU3YyaHNiQ3pQSVV4REJwbkpCWkxtbUpnTDNTdDlrSVFBQUFBJCQAAAAAAAAAAAEAAACtK9sBemNxMTAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPe9t2T3vbdkU"
+        load_dotenv(".env")
+        BDUSS = os.environ.get("BDUSS")
         self.tieba = Tieba(BDUSS)
         # self.tieba.http = MagicMock()
 
@@ -15,7 +18,7 @@ class TestTieba(unittest.TestCase):
 
     def test_onekey_sign(self):
         self.tieba.onekey_sign()
-    
+
     def test_sign(self):
         self.tieba.sign("阿尔比恩")
 

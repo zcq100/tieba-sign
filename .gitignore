@@ -6,3 +6,4 @@ dist
 main.py
 test/config.ini
 test
+.env
