@@ -1,178 +1,147 @@
 import logging
 import time
-import sys
-import argparse
+from urllib.parse import urlencode
 import requests
 
-# logging.basicConfig(level=logging.INFO,
-#                     format='%(asctime)s 贴吧签到: %(message)s')
+_LOG = logging.getLogger(__name__)
 
 
-class Forum(object):
-
-    def __init__(self, id, name, level, exp, isSign):
-        self.id = id
-        self.name = name
-        self.level = level
-        self.exp = exp
-        self.isSign = isSign
-
-
-class Tieba():
-    TIEBA_LIKE = "/mo/q/newmoindex"
+class Tieba:
+    # 用户贴吧状态
+    INFO = "/mo/q/newmoindex"
+    # 单独签到的接口
     SIGN_PATH = "/sign/add"
+    # 一键签到
+    ONKEY_SIGN = "/tbmall/onekeySignin1"
+    # 我喜欢的贴吧
+    TIEBA_LIST = "/i/i/forum?&pn=3"
+    MY_LIKE = "/f/like/mylike?v=1690371328754&pn=2"
     HOST = "tieba.baidu.com"
 
-    def __init__(self, bduss=None, ua=None, log=None):
-        """
-        BDUSS 是你的cookie里面的登录凭证，用浏览器登录，然后找到登录的cookie，复制BDUSS的值
-        """
-        self.token = bduss
-        self._forums = []
-        self.session = Tieba.Net("https://%s" % Tieba.HOST, ua)
-        self.session.headers["Cookie"] = f"BDUSS={bduss}"
-        self.log = log or logging.getLogger()
-
-    def get_tiebas(self):
-        """
-        获取所有关注的贴吧名称
-        """
-        if len(self._forums) > 0:
-            return
-        resp = self.session.get(Tieba.TIEBA_LIKE)
-        _data = resp.json()
-        if _data["error"] == "success":
-            for tb in _data["data"]["like_forum"]:
-                forum = Forum(id=tb["forum_id"], name=tb["forum_name"],
-                              exp=tb["user_exp"], level=tb["user_level"], isSign=tb["is_sign"])
-                self._forums.append(forum)
-            c = len(self._forums)
-            self.log.info(f"获取到了{c}个贴吧信息")
-            return c
-        else:
-            self.log.error(f"获取贴吧列表失败，请检查百度令牌")
+    def __init__(self, bduss=None):
+        self.http = Http(f"https://{Tieba.HOST}")
+        self.http.session.cookies.set("BDUSS", bduss)
+        self._tiebas = []
 
     def status(self):
         """
         获取签到状态
         """
-        self.get_tiebas()
-        self.log.info("#签到状态:")
-        count = 0
-        for tb in self._forums:
-            self.log.info(f"{tb.name}")
-            if tb.isSign == 1:
-                count += 1
-        self.log.info(f"#其中{count}个已经签过了:")
+        endpoint = Tieba.INFO
+        data = self.http.make_request(method="GET", endpoint=endpoint)
+        forums = data["data"]["like_forum"]
+        _LOG.info(f"共关注了{len(forums)}个贴吧")
+        for k in data["data"]["like_forum"]:
+            _LOG.info(
+                f"{k['forum_name']}({k['forum_id']}):{'已签' if k['is_sign'] == 1 else '未签'}"
+            )
+            if k["is_sign"] == 0:
+                self._tiebas.append(k["forum_name"])
+        return data
 
-    def sign(self, name, delay=0):
+    def onekey_sign(self):
         """
-        签到一个贴吧
+        一键签到
         """
-        if name is None:
-            raise ValueError("贴吧名不能为空")
+        endpoint = Tieba.ONKEY_SIGN
+        payload = {"ie": "utf-8", "tbs": "5c887f8452a9ebec1690371137"}
+        data = self.http.make_request(
+            method="POST", endpoint=endpoint, data=urlencode(payload)
+        )
+        _LOG.info(data)
+        if data["no"] == 2280006:
+            signed = data["data"]["signedForumAmount"]
+            unsigned = data["data"]["unsignedForumAmount"]
+            _LOG.info(f"{signed}个贴吧已签到，{unsigned}个贴吧未签到")
 
-        forum = self._get_forum(name)
-        if forum is not None and forum.isSign == 1:
-            self.log.info(f"{name}已经签过了")
-            return
-
-        time.sleep(delay)
-
-        payload = f"ie=utf-8&kw={name}"
-        resp = self.session.post(Tieba.SIGN_PATH, payload)
-        # logging.debug(resp.json())
-        if resp.status_code == 200:
-            j = resp.json()
-            if j["no"] == 0:
-                for tb in self._forums:
-                    if tb.name == name:
-                        tb.isSign = 1
-                self.log.info(f"{name}签到成功")
-            elif j["no"] == 2150040:
-                raise CaptchaException(f"!!!贴吧:{name}", j)
-            else:
-                raise SignFailException(f"{name}签到失败", j['error'])
-
-    def auto_sign(self, delay=3):
+    def sign(self, name):
         """
-        批量签到
-        delay 签到间隙时间
+        签到单个贴吧
+
+        name 贴吧的名字
         """
-        if not self.get_tiebas():
-            return
-        for forum in self._forums:
+        endpoint = Tieba.SIGN_PATH
+        payload = {"ie": "utf-8", "kw": name}
+        data = self.http.make_request(
+            method="POST", endpoint=endpoint, data=urlencode(payload)
+        )
+        # _LOG.info(data)
+        if data["no"] == 0:
+            _LOG.info(f"{name}吧签到成功")
+        else:
+            _LOG.error(data["error"])
+
+    def auto_sign(self, interval=5):
+        # 先调用贴吧的一键签到，可以签到一部分
+        self.onekey_sign()
+        # 检查签到的状态，如果还有未签到的贴吧，加入清单
+        self.status()
+        # 逐一处理未签到的贴吧
+        for name in self._tiebas:
             try:
-                self.sign(forum.name, delay)
-            except CaptchaException as e:
-                self.log.info(e)
-                # TODO(zcq100): 需要处理验证码的问题
-                # 暂时休眠3分钟
-                self.log.info("验证码暂时没有处理，建议停三分钟以上再试")
-                return
+                self.sign(name)
+            except Exception as err:
+                _LOG.error(err)
+            # 慢点来
+            time.sleep(interval)
 
-            except Exception as e:
-                self.log.error(e)
-        return True
+        # 再检查一次签到状态
+        self.status()
 
-    def _get_forum(self, name):
-        for f in self._forums:
-            if f.name == name:
-                return f
 
-    class Net:
-        headers = {
-            'User-Agent': r'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36',
-            'Host': "tieba.baidu.com",
-#            'content-type': "application/x-www-form-urlencoded; charset=UTF-8",
-#            'x-requested-with': "XMLHttpRequest"
+class Http:
+    def __init__(self, base_url=None):
+        self.base_url = base_url
+        self.headers = {
+            "User-Agent": r"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.54 Safari/537.36",
         }
+        self.session = requests.Session()
 
-        def __init__(self, host, ua=None):
-            if isinstance(ua, str) and len(ua):
-                self.headers['User-Agent'] = ua
-            self.host = host
-            self.session = requests.Session()
-            self.session.headers = self.headers
+    def make_request(
+        self,
+        method,
+        endpoint,
+        headers=None,
+        params=None,
+        cookies=None,
+        data=None,
+        verify=True,
+        **kwargs,
+    ) -> dict:
+        if headers:
+            self.headers.update(headers)
+        if cookies:
+            self.session.cookies.update(cookies)
 
-        def get(self, path):
-            url = self.host+path
-            return self.session.get(url)
-
-        def post(self, path, payload):
-            url = self.host+path
-            return self.session.post(url, data=payload.encode("utf-8"))
-
-
-class CaptchaException(Exception):
-    ...
-
-
-class SignFailException(Exception):
-    ...
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Baidu Tieba Sign")
-    parser.add_argument("bduss", type=str, help="tieba bduss cookie")
-    parser.add_argument("-v", action="store_true",
-                        dest="dbg", help="verbose")
-    args = parser.parse_args()
-    if args.dbg:
-        logging.basicConfig(level=logging.DEBUG)
-        logging.debug("verbose mode")
-
-    if args.bduss is None:
-        parser.print_help()
-    else:
+        url = self.base_url + endpoint
+        resp = self.session.request(
+            method,
+            url=url,
+            params=params,
+            data=data,
+            verify=verify,
+            **kwargs,
+        )
+        resp.raise_for_status()
         try:
-            logging.info("BDUSS=%s"%args.bduss)
-            app = Tieba(args.bduss)
-            app.auto_sign()
-        except KeyboardInterrupt:
-            logging.info("Exit..")
-            sys.exit()
+            _json = resp.json()
+            # no 不为0的都有点问题
+            if _json["no"] == 1:
+                raise SignFailError(_json["error"])
+            if _json["no"] == 1010:
+                raise TiebaStatuError(f"贴吧状态异常，{data}")
+            return _json
+        except ValueError as err:
+            _LOG.error(err)
 
 
-if __name__ == '__main__':
-    main()
+class CaptchaError(Exception):
+    ...
+
+
+class SignFailError(Exception):
+    ...
+
+
+class TiebaStatuError(Exception):
+    ...

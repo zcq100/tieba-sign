@@ -10,22 +10,23 @@ pip install --user tieba-sign
 
 ``` shell
 #查看帮助
-usage: tieba-sign [-h] [-v] bduss
+usage: -m [-h] [-i INTERVAL] [-v] bduss
 
 Baidu Tieba Sign
 
 positional arguments:
-  bduss       tieba bduss cookie
+  bduss        tieba bduss cookie
 
-optional arguments:
-  -h, --help  show this help message and exit
-  -v          verbose
+options:
+  -h, --help   show this help message and exit
+  -i INTERVAL  签到间隔时间
+  -v           verbose
 ```
 
 首先登录百度，然后打开浏览器调试工具(按F12)，在网络，请求头找到cookie,然后拷贝BDUSS段的值过来。
 
 ``` shell
-tieba-sign -v "RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE;"
+python -m tieba "RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE;"
 
 ```
 
@@ -34,12 +35,18 @@ tieba-sign -v "RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE;"
 ``` python
 from tieba import Tieba
 
-app=Tieba("RsNlNwbUpKdGtjeS1zaFZxcHJMQVZzM3BE;")
+app=Tieba("RsNlNwbUpKdGtj....aFZxcHJMQVZzM3BE")
 #查看签到状态
 app.status()
+# 单独签到
+app.sign("python")
 #批量签到
 app.auto_sign()
-# 2021-05-21 17:16:34,982 贴吧签到: 获取到了120个贴吧信息
-# 2021-05-21 17:16:34,982 贴吧签到: 3d打印已经签过了
-# 2021-05-21 17:16:34,983 贴吧签到: 4k已经签过了
+# 2023-07-26 21:51:49,320 - tieba.sign - INFO - 共关注了136个贴吧
+# 2023-07-26 21:51:49,320 - tieba.sign - DEBUG - 3d打印(2206871):已签
+# 2023-07-26 21:51:49,320 - tieba.sign - DEBUG - 4k(463046):已签
+# 2023-07-26 21:51:49,320 - tieba.sign - DEBUG - archlinux(1695944):已签
+# 2023-07-26 21:51:49,320 - tieba.sign - DEBUG - arduino(2712373):已签
+# 2023-07-26 21:51:49,320 - tieba.sign - DEBUG - blender(972857):已签
+# ...
 ```
