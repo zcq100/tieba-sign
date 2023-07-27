@@ -12,7 +12,7 @@ pip install --user tieba-sign
 #查看帮助
 $ python -m tieba -h
 
-usage: -m [-h] [-i INTERVAL] [-v] [bduss]
+usage: -m [-h] [-i INTERVAL] [-q | -v] [bduss]
 
 百度贴吧批量签到
 
@@ -22,6 +22,7 @@ positional arguments:
 options:
   -h, --help   show this help message and exit
   -i INTERVAL  签到间隔时间，批量签到避免弹验证码，默认5秒
+  -q           安静模式，不显示运行信息
   -v           详细模式，显示更多运行信息
 ```
 
