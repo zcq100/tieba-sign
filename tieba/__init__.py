@@ -2,7 +2,6 @@ import logging
 import sys
 import argparse
 
-from boto import log
 from tieba.sign import Tieba, SignFailError
 
 logging.basicConfig(
