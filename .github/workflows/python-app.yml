@@ -1,8 +1,9 @@
 name: Tieba Auto Sign
 
 on:
-  push:
-    branches: [ "master" ]
+  workflow_dispatch:
+  #push:
+  #  branches: [ "master" ]
   schedule:
     - cron: '5 22,10 * * *'
 
