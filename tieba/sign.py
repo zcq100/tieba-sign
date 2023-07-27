@@ -1,5 +1,3 @@
-from asyncio import FastChildWatcher
-from email.mime import base
 import logging
 import time
 import os
@@ -147,6 +145,8 @@ class Http:
                 raise SignFailError(_json["error"])
             if _json["no"] == 1010:
                 raise TiebaStatuError(f"贴吧状态异常，{data}")
+            if _json["no"] == 2150040:
+                raise CaptchaError(f"需要验证码,{_json['data']}")
             return _json
         except ValueError as err:
             _LOG.error(err)
