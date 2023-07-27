@@ -1,5 +1,15 @@
 # 百度贴吧 自动签到
 
+## Action 自动签到
+
+使用GitHub提供的CI任务，可以实现定时自动签到。
+
+步骤：
+1. Fork 本项目
+2. 浏览器打开贴吧网站，按F12打开调试工具，在应用，Cookie，里面找到BDUSS，拷贝值到第三步。
+3. 打开项目设置，在`Secrets and Variables`，点 New repository secret，添加变量名`BDUSS`，并填入上面获取到的值。
+4. 保存后就可去Action里面触发任务。
+
 ## 如何安装
 
 ``` shell
