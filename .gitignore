@@ -4,6 +4,6 @@ build
 dist
 *.egg-info
 main.py
-test/config.ini
-test
+test_*/
 .env
+myvenv/
