@@ -5,10 +5,8 @@ on:
   #push:
   #  branches: [ "master" ]
   schedule:
-    - cron: '5 22,10 * * *'
-env:
-  TZ: "Asia/Shanghai"
-  
+    - cron: '5 23,2 * * *'
+    # UTC +8，这里设置的早上7点5分和晚上10点5分运行
 jobs:
   Tieba_Sign:
 
