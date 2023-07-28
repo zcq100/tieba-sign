@@ -6,7 +6,9 @@ on:
   #  branches: [ "master" ]
   schedule:
     - cron: '5 22,10 * * *'
-
+env:
+  TZ: "Asia/Shanghai"
+  
 jobs:
   Tieba_Sign:
 
