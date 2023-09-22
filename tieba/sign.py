@@ -1,10 +1,11 @@
-import logging
-import time
-import os
-import sys
 import base64
 import json
+import logging
+import os
+import sys
+import time
 from urllib.parse import urlencode
+
 import requests
 
 _LOG = logging.getLogger(__name__)

@@ -14,7 +14,7 @@ def main():
     parser = argparse.ArgumentParser(description="百度贴吧批量签到")
     parser.add_argument("bduss", type=str, nargs="?", help="贴吧bduss的cookie值")
     parser.add_argument(
-        "-i", type=int, dest="interval", default=5, help="签到间隔时间，批量签到避免弹验证码，默认5秒"
+        "-i", type=int, dest="interval", default=5, help="签到间隔时间, 批量签到避免弹验证码, 默认5秒"
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-v", action="store_true", dest="verbose", help="详细模式，显示更多运行信息")
